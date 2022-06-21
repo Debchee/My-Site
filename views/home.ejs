@@ -54,9 +54,17 @@
 
             <% allPosts.forEach((post) => { %>
                 <div class="col-lg-4 col-md-6 col-sm-12">
-                  <a href="/viewPost" style="text-decoration: none;" class="text-black">
+                  <a href="/viewPost/<%= post._id %>" style="text-decoration: none;" class="text-black">
                     <div class="card" style="width: 19rem;">
-                      <img src="<%= post.img %>" class="card-img-top" alt="img">
+                      <% if (post.mediaType === 'image') { %>
+                        <img height="200vh;" src="<%= post.mediaFile %>" class="card-img-top" alt="img">
+                      <% } else { %>
+                        <video height="200vh;"controls>
+                          <source src="<%= post.mediaFile %>" type="video/mp4">
+                          <source src="<%= post.mediaFile %>" type="video/ogg">
+                          Your browser does not support the video tag.
+                        </video>
+                      <% } %>
                       <div class="card-body">
                         <h5 class="card-title"><%= post.title %></h5>
                         <p class="card-text"><%= post.content %></p>

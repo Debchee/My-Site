@@ -1,23 +1,43 @@
 const express = require('express');
 const app = express();
-const port= 7000;
+const port= process.env.PORT || 7000;
 const logger = require('morgan');
 const path = require('path');
 const flash = require('connect-flash');
 const mongoose = require('mongoose');
-const User = require('./models/User.js')
-const bcrypt = require('bcryptjs')
+const User = require('./models/User.js');
+const Post = require('./models/Post.js');
+const Comment = require('./models/Comment.js');
+const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const {globalVariables} = require('./config/globalConfig');
 const passport = require('passport');
 const LocalStrategy = require('passport-local').Strategy
-const {isLoggedIn} = require('./config/authorization')
+const {isLoggedIn} = require('./config/authorization');
+const multer= require('multer');
+const cloudinary = require('cloudinary').v2;
+const moment = require('moment');
+
+const storage = multer.diskStorage({
+    filename: function(req, file, callback){
+        callback(null, Date.now() + file.originalname );
+    }
+});
+
+const upload = multer({storage: storage});
+
+// setup cloudinary upload
+cloudinary.config({
+    cloud_name: 'dytgyjswa',
+    api_key: '566243367268936',
+    api_secret: 'Jecd_SOqhdoCUc_ccqUXExjOKT8'
+});
 
 // DB connection
 
-mongoose.connect("mongodb://localhost/MyBlog")
+mongoose.connect("mongodb+srv://Debchee:Ubique7Dinma7@cluster0.wjqefe5.mongodb.net/?retryWrites=true&w=majority")
 .then(response => console.log('Database Connected Successfully'))
 .catch(error => console.log(`Database connection error: ${error}`))
 
@@ -36,7 +56,7 @@ app.use(session({
         maxAge: Date.now() + 3600000
     },
     store: MongoStore.create({
-      mongoUrl: 'mongodb://localhost/MyBlog',
+      mongoUrl: 'mongodb+srv://Debchee:Ubique7Dinma7@cluster0.wjqefe5.mongodb.net/?retryWrites=true&w=majority',
       ttl: 365 * 24 * 60 * 60 // = 14 days. Default
     })
   }));
@@ -88,63 +108,15 @@ app.use(logger('dev'));
 app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
+// set up moment
+app.locals.moment= moment;
+
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
 app.use(express.urlencoded({extended : true}))
 
-app.get('/', (req,res) => {
-    const allPosts = [
-        {
-            img: '/assets/images/Blogging-pana.svg',
-            title: 'First Post',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Second Post',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Third Post',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Card Title',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Card Title',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Card Title',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Card Title',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        },
-
-        {
-            img: '/assets/images/image1.jpg',
-            title: 'Card Title',
-            content: "Some quick example text to build on the card title and make up the bulk of the card's content."
-        }
-    ];
-
-
-
+app.get('/', async (req,res) => {
+    const allPosts = await Post.find({}).sort({ _id: -1 });
     res.render('home', {allPosts});
 });
 
@@ -195,18 +167,68 @@ const newUser = new User({
  res.redirect("/login");
 });
 
-app.get('/newpost', (req,res) => {
+app.get('/newpost',(req,res) => {
     res.render('newPost');
 });
 
-app.get('/viewPost', (req,res) => {
-    res.render('viewPost');
+app.post('/newpost', isLoggedIn, upload.single('mediaFile'), async (req,res) => {
+    try {
+        let {title, content} = req.body;
+        let mediaType= '';
+        if(req.file.mimetype === 'video/mp4'){
+            mediaType= 'video';
+        }else{
+            mediaType= 'image';
+        }
+    const uploadedFile= await cloudinary.uploader.upload(req.file.path, {resource_type: mediaType});
+
+    if(!uploadedFile){
+        req.flash("error-message", "Error while uploading file!!")
+        return res.redirect('back')
+    }
+
+    let newPost = new Post({
+        title,
+        content, 
+        mediaType,
+        mediaFile: uploadedFile.secure_url,
+        author:req.user._id
+    });
+
+    await newPost.save();
+    req.flash("success-message", "Post created")
+        res.redirect('back')
+
+    }catch(err) {
+        console.log("Error from upload::: ", err)
+    }
+});
+
+app.get('/viewPost/:postId', async (req,res) => {
+    let singlePost = await Post.findOne({_id: req.params.postId}).populate("author");
+    console.log(singlePost);
+    res.render('viewPost', {singlePost});
 });
 
 app.get('/user/profile', isLoggedIn, (req,res) => {
     res.render('profile');
 });
 
+app.post('/comment/:postId', async (req, res) => {
+    let {Comment} = req.body;
+    let post = await Post.findOne({_id: req.params.postId});
+
+    let newComment = new Comment({
+        comment: comment, 
+        user: req.user._id
+    });
+
+    await newComment.save();
+
+    post.push(newComment._id);
+    await post.save();
+
+});
 
 app.get('/user/logout',(req, res) => {
     req.logout(function(err) {

@@ -8,9 +8,22 @@ const postSchema = new Schema({
     content: {
         type: String
     },
-    image: {
+    mediaType: {
         type: String
-    }},
+    },
+    mediaFile:{
+        type:String
+    },
+    author:{
+        type: Schema.Types.ObjectId,
+        ref:"user"
+    },
+
+    comments:[{
+        type: Schema.Types.ObjectId,
+        ref:'user'
+    }]
+},
     {timeStamps: true});
 
     const Post= mongoose.model('post', postSchema);
