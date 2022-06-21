@@ -7,7 +7,7 @@ const flash = require('connect-flash');
 const mongoose = require('mongoose');
 const User = require('./models/User.js');
 const Post = require('./models/Post.js');
-const Comment = require('./models/Comment.js');
+const Comment = require('./models/Comment');
 const bcrypt = require('bcryptjs');
 const cookieParser = require('cookie-parser');
 const session = require('express-session');
@@ -109,7 +109,7 @@ app.set('views', path.join(__dirname, 'views'));
 app.set('view engine', 'ejs');
 
 // set up moment
-app.locals.moment= moment;
+app.locals.moment = moment;
 
 app.use(express.static(path.join(__dirname, 'public')));
 app.use(express.json());
@@ -205,7 +205,16 @@ app.post('/newpost', isLoggedIn, upload.single('mediaFile'), async (req,res) => 
 });
 
 app.get('/viewPost/:postId', async (req,res) => {
-    let singlePost = await Post.findOne({_id: req.params.postId}).populate("author");
+    let singlePost = await Post.findOne({_id: req.params.postId})
+    .populate("author")
+    .populate({
+       path: 'comments',
+
+       options: {sort : {_id: -1}},
+       populate: {
+           path: 'user'
+       }
+    });
     console.log(singlePost);
     res.render('viewPost', {singlePost});
 });
@@ -215,7 +224,7 @@ app.get('/user/profile', isLoggedIn, (req,res) => {
 });
 
 app.post('/comment/:postId', async (req, res) => {
-    let {Comment} = req.body;
+    let {comment} = req.body;
     let post = await Post.findOne({_id: req.params.postId});
 
     let newComment = new Comment({
