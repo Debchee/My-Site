@@ -4,8 +4,8 @@ const {Schema}= mongoose;
 const commentSchema = new Schema({
     comment: {
         type: String
-    },
-
+    }, 
+ 
     user:{
         type: Schema.Types.ObjectId,
         ref: 'user'
@@ -13,4 +13,4 @@ const commentSchema = new Schema({
 },{timestamps: true});
 
 const Comment = mongoose.model('comment', commentSchema);
-module.exorts= Comment;
+module.exports= Comment;

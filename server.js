@@ -227,15 +227,24 @@ app.post('/comment/:postId', async (req, res) => {
     let {comment} = req.body;
     let post = await Post.findOne({_id: req.params.postId});
 
+
     let newComment = new Comment({
         comment: comment, 
         user: req.user._id
     });
 
+
+
     await newComment.save();
 
-    post.push(newComment._id);
+    console.log(post);
+
+
+    post.comments.push(newComment._id);
     await post.save();
+
+    req.flash("success-message", "Comment created successfully")
+    res.redirect('back')
 
 });
 
